@@ -38,7 +38,7 @@ IMAGE_DIR  = TEST_DIR / "images"
 TEST_CSV   = TEST_DIR / "test.csv"
 OUTPUT_CSV = Path("./submission.csv")
 
-MODEL_PATH = os.environ.get("MODEL_PATH", "./qwen25vl")
+MODEL_PATH = os.environ.get("MODEL_PATH", str(Path(__file__).parent / "qwen25vl"))
 
 IMG_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".webp", ".tiff"}
 
