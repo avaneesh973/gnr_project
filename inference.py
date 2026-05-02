@@ -1,18 +1,5 @@
 #!/usr/bin/env python3
-"""
-Inference script for the GNR project (Deep Learning MCQ Solver).
 
-Reads a test directory containing:
-  - test.csv          : list of test items (with image filename / id)
-  - submission.csv    : dummy submission template (defines output format)
-  - <some folder>     : directory containing the actual images
-
-Writes ./submission.csv with predictions.
-
-Model: Qwen/Qwen2.5-VL-7B-Instruct (loaded from ./models/qwen25vl)
-Predictions: integer 1..5  (1=A, 2=B, 3=C, 4=D, 5=unsure/X)
-              -- if the dummy submission uses letters, letters will be written instead.
-"""
 import argparse
 import gc
 import os
@@ -29,9 +16,7 @@ from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
 from qwen_vl_utils import process_vision_info
 
 
-# ---------------------------------------------------------------------------
 # Constants
-# ---------------------------------------------------------------------------
 SCRIPT_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
 MODEL_PATH = SCRIPT_DIR / "models" / "qwen25vl"
 
@@ -61,9 +46,7 @@ USER_PROMPT = (
 )
 
 
-# ---------------------------------------------------------------------------
 # Helpers
-# ---------------------------------------------------------------------------
 def parse_answer(raw: str) -> str:
     """Extract A/B/C/D/X from raw model output."""
     if raw is None:
@@ -180,9 +163,7 @@ def detect_output_letters(template: pd.DataFrame, answer_col: str) -> bool:
     return False
 
 
-# ---------------------------------------------------------------------------
 # Main
-# ---------------------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser(description="GNR project inference")
     parser.add_argument("--test_dir", type=str, required=True,
@@ -232,9 +213,7 @@ def main():
     )
     print(f"[INFO] Output format: {'LETTERS (A/B/C/D)' if output_letters else 'INTEGERS (1..5)'}")
 
-    # ------------------------------------------------------------------
     # Load model
-    # ------------------------------------------------------------------
     print(f"[INFO] Loading processor & model from {MODEL_PATH} ...")
     if not MODEL_PATH.is_dir():
         print(f"[ERROR] Model directory not found: {MODEL_PATH}", file=sys.stderr)
@@ -263,9 +242,7 @@ def main():
 
     first_device = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
-    # ------------------------------------------------------------------
     # Inference function
-    # ------------------------------------------------------------------
     @torch.inference_mode()
     def predict(image_path: str) -> str:
         messages = [
@@ -304,9 +281,7 @@ def main():
             torch.cuda.empty_cache()
         return parse_answer(raw)
 
-    # ------------------------------------------------------------------
     # Iterate over the test set
-    # ------------------------------------------------------------------
     predictions = []  # parallel to test_df rows
 
     for _, row in tqdm(test_df.iterrows(), total=len(test_df),
@@ -332,9 +307,7 @@ def main():
             letter = "A"
         predictions.append(letter)
 
-    # ------------------------------------------------------------------
     # Build submission
-    # ------------------------------------------------------------------
     # Map letter predictions to integers 1-5:
     #   A=1, B=2, C=3, D=4, X=5  (5 means model was genuinely unsure)
     # Fallback to 1 only for truly unexpected outputs (should never happen).
@@ -353,17 +326,6 @@ def main():
     out_path = Path("submission.csv").resolve()
     sub_out.to_csv(out_path, index=False)
     print(f"[INFO] Wrote {out_path} ({len(sub_out)} rows)")
-
-    # Distribution summary
-    from collections import Counter
-    letter_dist = dict(Counter(predictions))
-    int_dist    = dict(Counter(out_values))
-    print(f"[INFO] Prediction distribution (letters): {letter_dist}")
-    print(f"[INFO] Prediction distribution (ints)   : {int_dist}")
-    unsure_count = predictions.count("X")
-    if unsure_count:
-        print(f"[INFO] Model was unsure on {unsure_count}/{len(predictions)} images -> option=5")
-
 
 if __name__ == "__main__":
     main()
