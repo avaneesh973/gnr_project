@@ -335,34 +335,34 @@ def main():
     # ------------------------------------------------------------------
     # Build submission
     # ------------------------------------------------------------------
-    if output_letters:
-        out_values = [p if p in ("A", "B", "C", "D") else "A" for p in predictions]
-    else:
-        out_values = [LETTER_TO_INT.get(p, 1) for p in predictions]
+    # Map letter predictions to integers 1-5:
+    #   A=1, B=2, C=3, D=4, X=5  (5 means model was genuinely unsure)
+    # Fallback to 1 only for truly unexpected outputs (should never happen).
+    out_values = [LETTER_TO_INT.get(p, 1) for p in predictions]
 
-    if sub_template is not None and len(sub_template) == len(test_df):
-        # Preserve original ordering / extra columns of the dummy submission.
-        sub_out = sub_template.copy()
-        sub_id_col = detect_id_column(sub_template)
-        # Build a mapping from id -> prediction
-        pred_map = {str(test_df[id_col].iloc[i]): out_values[i]
-                    for i in range(len(test_df))}
-        sub_out[answer_col] = [pred_map.get(str(v), out_values[i] if i < len(out_values) else "A")
-                               for i, v in enumerate(sub_out[sub_id_col])]
-    else:
-        # Build from scratch using test.csv structure
-        sub_out = pd.DataFrame({
-            id_col: test_df[id_col].values,
-            answer_col: out_values,
-        })
+    # Fixed output schema required by grader: image_id, image_name, option
+    # image_id == image_name (both carry the image filename/id from test.csv)
+    image_ids = [str(test_df[id_col].iloc[i]) for i in range(len(test_df))]
+
+    sub_out = pd.DataFrame({
+        "image_id":   image_ids,
+        "image_name": image_ids,
+        "option":     out_values,
+    })
 
     out_path = Path("submission.csv").resolve()
     sub_out.to_csv(out_path, index=False)
     print(f"[INFO] Wrote {out_path} ({len(sub_out)} rows)")
 
-    # Quick distribution summary
+    # Distribution summary
     from collections import Counter
-    print(f"[INFO] Prediction distribution: {dict(Counter(predictions))}")
+    letter_dist = dict(Counter(predictions))
+    int_dist    = dict(Counter(out_values))
+    print(f"[INFO] Prediction distribution (letters): {letter_dist}")
+    print(f"[INFO] Prediction distribution (ints)   : {int_dist}")
+    unsure_count = predictions.count("X")
+    if unsure_count:
+        print(f"[INFO] Model was unsure on {unsure_count}/{len(predictions)} images -> option=5")
 
 
 if __name__ == "__main__":
